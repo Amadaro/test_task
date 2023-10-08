@@ -1,47 +1,129 @@
 <script lang="ts">
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from '/vite.svg'
-  import Counter from './lib/Counter.svelte'
+  import { onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
+
+  let fromCurrency = '';
+  let toCurrency = '';
+  let amountFrom: number = 0;
+  let amountTo: number = 0;
+
+  let exchangeRates: { [key: string]: number } = {};
+
+  async function fetchExchangeRates() {
+    try {
+      const response = await fetch('https://v6.exchangerate-api.com/v6/b562818db1b33b0a303852d8/latest/USD');
+      if (response.ok) exchangeRates = (await response.json()).conversion_rates || {};
+    } catch (error) {
+      console.error('Ошибка при получении курсов валют:', error);
+    }
+  }
+
+  onMount(fetchExchangeRates);
+
+  function calculateAmountTo() {
+    if (fromCurrency && toCurrency && exchangeRates[fromCurrency] && exchangeRates[toCurrency])
+      amountTo = +(+amountFrom * exchangeRates[toCurrency]).toFixed(2);
+  }
+
+  function calculateAmountFrom() {
+    if (fromCurrency && toCurrency && exchangeRates[fromCurrency] && exchangeRates[toCurrency])
+      amountFrom = +(+amountTo / exchangeRates[toCurrency]).toFixed(2);
+  }
+
+  const dispatch = createEventDispatcher();
+
+  function handleAmountChange(event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    const inputValue = parseFloat(inputElement.value);
+    if (!isNaN(inputValue)) {
+      if (inputElement.id === 'amountFrom') amountFrom = inputValue;
+      else if (inputElement.id === 'amountTo') amountTo = inputValue;
+      dispatch('conversion', { fromCurrency, toCurrency, amountFrom, amountTo });
+    }
+  }
 </script>
 
 <main>
-  <div>
-    <a href="https://vitejs.dev" target="_blank" rel="noreferrer">
-      <img src={viteLogo} class="logo" alt="Vite Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank" rel="noreferrer">
-      <img src={svelteLogo} class="logo svelte" alt="Svelte Logo" />
-    </a>
+  <h1>Конвертер валют</h1>
+
+  <div class="currency-row">
+    <div>
+      <label for="fromCurrency">Валюта №1:</label>
+      <select id="fromCurrency" bind:value={fromCurrency}>
+        {#each Object.keys(exchangeRates) as currency}
+          <option value={currency}>{currency}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div>
+      <label for="amountFrom">Сумма №1:</label>
+      <input
+        type="text"
+        id="amountFrom"
+        bind:value={amountFrom}
+        on:input={calculateAmountTo}
+        on:change={handleAmountChange}
+      />
+    </div>
   </div>
-  <h1>Vite + Svelte</h1>
 
-  <div class="card">
-    <Counter />
+  <div class="currency-row">
+    <div>
+      <label for="toCurrency">Валюта №2:</label>
+      <select id="toCurrency" bind:value={toCurrency}>
+        {#each Object.keys(exchangeRates) as currency}
+          <option value={currency}>{currency}</option>
+        {/each}
+      </select>
+    </div>
+
+    <div>
+      <label for="amountTo">Сумма №2:</label>
+      <input
+        type="text"
+        id="amountTo"
+        bind:value={amountTo}
+        on:input={calculateAmountFrom}
+        on:change={handleAmountChange}
+      />
+    </div>
   </div>
-
-  <p>
-    Check out <a href="https://github.com/sveltejs/kit#readme" target="_blank" rel="noreferrer">SvelteKit</a>, the official Svelte app framework powered by Vite!
-  </p>
-
-  <p class="read-the-docs">
-    Click on the Vite and Svelte logos to learn more
-  </p>
 </main>
-
 <style>
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
+  main {
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    padding: 10px 25px 10px 25px;
+
+    box-shadow: 0px 0px 10px rgba(254, 254, 254, 0.5);
   }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em #646cffaa);
+
+  h1 {
+    font-size: 30px;
   }
-  .logo.svelte:hover {
-    filter: drop-shadow(0 0 2em #ff3e00aa);
+
+  div {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
   }
-  .read-the-docs {
-    color: #888;
+
+  label {
+    width: 100px;
+  }
+
+  input[type="text"],
+  select {
+    margin-right: 10px;
+    width: 60px;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+  }
+
+  input[type="text"] {
+    width: 150px;
   }
 </style>
